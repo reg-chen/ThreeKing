@@ -2,14 +2,6 @@ name: Build ThreeKing Windows
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'index.html'
-      - 'manifest.json'
-      - 'sw.js'
-      - 'assets/**'
-      - '.github/workflows/pake-windows.yml'
 
 permissions:
   contents: read
