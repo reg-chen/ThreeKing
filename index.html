@@ -354,10 +354,18 @@
         :root[data-theme="dark"] h2.with-border {border-color:var(--secondary-color)}
         :root[data-theme="dark"] .theme-switch {background:#2b394b;color:#e7f0fa}
         @media(max-width:480px){.theme-switch{position:static;align-self:flex-end;margin-bottom:4px}h1{font-size:1.8rem;gap:8px}h1 img,h1::after{width:35px;height:35px}}
+        /* Keep the theme control alongside the title without occupying a separate row. */
+        h1 { flex-wrap: nowrap; }
+        h1::after { display: none; }
+        h1 .theme-switch { position: static; flex-shrink: 0; margin: 0 0 0 2px; font-weight: 500; text-shadow: none; }
+        @media (max-width: 480px) {
+            h1 { font-size: 1.45rem; gap: 7px; }
+            h1 img { width: 32px; height: 32px; }
+            h1 .theme-switch { font-size: 12px; padding: 5px 7px; }
+        }
     </style>
 </head>
 <body>
-<button id="themeSwitch" class="theme-switch" type="button" onclick="cycleThreeKingTheme()">主題：自動</button>
 
 <!-- 全域漂浮通知 -->
 <div id="toast-notification">已儲存</div>
@@ -390,6 +398,7 @@
 <h1>
     <img src="https://cdn-icons-png.flaticon.com/512/850/850960.png" alt="Logo">
     三王計時器
+    <button id="themeSwitch" class="theme-switch" type="button" onclick="cycleThreeKingTheme()">主題：自動</button>
 </h1>
 
 <div class="main-wrapper">
