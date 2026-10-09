@@ -1,0 +1,64 @@
+name: Build ThreeKing Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'manifest.json'
+      - 'sw.js'
+      - 'assets/**'
+      - '.github/workflows/pake-windows.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout ThreeKing
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Pake CLI
+        run: npm install --global pake-cli
+
+      - name: Build standalone Windows application
+        shell: pwsh
+        run: |
+          pake . --name ThreeKing --width 640 --height 800 --min-width 420 --min-height 580 --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Collect Windows installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          $files = Get-ChildItem -Path . -Recurse -File | Where-Object {
+            $_.Extension -in @('.msi', '.exe') -and
+            $_.FullName -notmatch '[\\/]node_modules[\\/]|[\\/]target[\\/]debug[\\/]'
+          }
+          if (-not $files) { throw 'Pake produced no Windows installer.' }
+          foreach ($file in $files) {
+            if ($file.DirectoryName -ne (Resolve-Path release).Path) {
+              Copy-Item -LiteralPath $file.FullName -Destination release -Force
+            }
+          }
+          Get-ChildItem release | Select-Object Name, Length
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ThreeKing-Windows-x64
+          path: release/*
+          if-no-files-found: error
+          retention-days: 30
