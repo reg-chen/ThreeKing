@@ -366,6 +366,7 @@
 
         /* Optional, local-only diagnostic panel; no timer behavior changes. */
         .diagnostic-panel { font-size: 12px; text-align: left; }
+        .diagnostic-panel[hidden] { display: none !important; }
         .diagnostic-panel summary { cursor: pointer; font-weight: 600; }
         .diagnostic-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; background: var(--tab-bg); padding: 10px; border-radius: 6px; }
         .diagnostic-panel button { margin-top: 5px; border: 1px solid var(--tab-border); border-radius: 5px; padding: 5px 9px; cursor: pointer; background: var(--tab-bg); color: inherit; }
@@ -408,7 +409,7 @@
 </h1>
 
 <div class="main-wrapper">
-    <div class="container diagnostic-panel">
+    <div class="container diagnostic-panel" id="diagnosticPanel" hidden>
         <details id="diagnosticDetails">
             <summary>診斷資訊（點擊展開）</summary>
             <pre id="diagnosticOutput">讀取中…</pre>
@@ -512,6 +513,20 @@
 </div>
 
 <script>
+
+    // F12 toggles the diagnostic panel without requiring DevTools.
+    // Capture early because packaged desktop runtimes may intercept default shortcuts.
+    window.addEventListener('keydown', function(e) {
+        if (e.key !== 'F12' && e.keyCode !== 123) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const panel = document.getElementById('diagnosticPanel');
+        if (!panel) return;
+        panel.hidden = !panel.hidden;
+        const details = document.getElementById('diagnosticDetails');
+        if (details) details.open = !panel.hidden;
+        if (!panel.hidden) renderThreeKingDiagnostics();
+    }, true);
 
     const threeKingEvents = [];
     function logThreeKingEvent(kind, details = {}) {
