@@ -913,9 +913,14 @@
                         return; 
                     }
 
-                    // Notification click only navigates to the relevant tab.
-                    // Starting the next boss is exclusively controlled by autoNext.
-                    switchTab(tabId);
+                    if (!globalConfig.autoNext) {
+                        const nextStep = finishedStep + 1;
+                        if (nextStep <= 3) {
+                            const nextBtn = document.getElementById(`btn${nextStep}-${tabId}`);
+                            if (nextBtn && !nextBtn.disabled) nextBtn.click(); 
+                            switchTab(tabId);
+                        }
+                    }
                 }
             };
         } else { setTimeout(() => alert(`${title}\n${body}`), 100); }
