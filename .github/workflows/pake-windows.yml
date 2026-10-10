@@ -13,15 +13,23 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout ThreeKing
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependency downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: threeking-pake-cargo-${{ runner.os }}-v1
 
       - name: Install Pake CLI
         run: npm install --global pake-cli
@@ -36,22 +44,19 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release | Out-Null
-          $files = Get-ChildItem -Path . -Recurse -File | Where-Object {
-            $_.Extension -in @('.msi', '.exe') -and
-            $_.FullName -notmatch '[\\/]node_modules[\\/]|[\\/]target[\\/]debug[\\/]'
-          }
-          if (-not $files) { throw 'Pake produced no Windows installer.' }
-          foreach ($file in $files) {
-            if ($file.DirectoryName -ne (Resolve-Path release).Path) {
-              Copy-Item -LiteralPath $file.FullName -Destination release -Force
-            }
-          }
-          Get-ChildItem release | Select-Object Name, Length
+          $installer = Get-ChildItem -Path . -Recurse -File -Filter '*.msi' |
+            Where-Object { $_.FullName -notmatch '[\\/]node_modules[\\/]|[\\/]target[\\/]debug[\\/]' } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if (-not $installer) { throw 'Pake produced no Windows MSI installer.' }
+          Copy-Item -LiteralPath $installer.FullName -Destination 'release/ThreeKing.msi' -Force
+          Get-Item 'release/ThreeKing.msi' | Select-Object Name, Length
 
       - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ThreeKing-Windows-x64
-          path: release/*
+          path: release/ThreeKing.msi
+          archive: false
           if-no-files-found: error
           retention-days: 30
