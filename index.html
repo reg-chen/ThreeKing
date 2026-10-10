@@ -783,7 +783,9 @@
                             const nextStep = btnStep + 1;
                             if (nextStep <= 3) {
                                 const nextBtn = document.getElementById(`btn${nextStep}-${tab.id}`);
-                                if (nextBtn && !nextBtn.disabled) setTimeout(() => nextBtn.click(), 500);
+                                if (nextBtn && !nextBtn.disabled) setTimeout(() => {
+                                    if (globalConfig.autoNext && !nextBtn.disabled) nextBtn.click();
+                                }, 500);
                             } else {
                                 sendNotification(`[${tab.name}]`, `全部通關完成！`, tab.id, 3);
                             }
@@ -911,14 +913,9 @@
                         return; 
                     }
 
-                    if (!globalConfig.autoNext) {
-                        const nextStep = finishedStep + 1;
-                        if (nextStep <= 3) {
-                            const nextBtn = document.getElementById(`btn${nextStep}-${tabId}`);
-                            if (nextBtn && !nextBtn.disabled) nextBtn.click(); 
-                            switchTab(tabId);
-                        }
-                    }
+                    // Notification click only navigates to the relevant tab.
+                    // Starting the next boss is exclusively controlled by autoNext.
+                    switchTab(tabId);
                 }
             };
         } else { setTimeout(() => alert(`${title}\n${body}`), 100); }
