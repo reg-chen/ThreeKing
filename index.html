@@ -534,6 +534,17 @@
         if (threeKingEvents.length > 30) threeKingEvents.shift();
         renderThreeKingDiagnostics();
     }
+    // Lifecycle logs help distinguish a focus event from notification activation.
+    window.addEventListener('focus', () => logThreeKingEvent('window.focus', {
+        visibility: document.visibilityState, autoNext: globalConfig.autoNext
+    }));
+    window.addEventListener('blur', () => logThreeKingEvent('window.blur', {
+        visibility: document.visibilityState
+    }));
+    document.addEventListener('visibilitychange', () => logThreeKingEvent('visibilitychange', {
+        visibility: document.visibilityState, autoNext: globalConfig.autoNext
+    }));
+
     function renderThreeKingDiagnostics() {
         const out = document.getElementById('diagnosticOutput');
         if (!out) return;
@@ -644,6 +655,7 @@
             });
 
             notification.onclick = function() {
+                logThreeKingEvent('準備通知 onclick', {tabId, visibility:document.visibilityState});
                 window.focus(); notification.close(); 
                 const btn1 = document.getElementById(`btn1-${tabId}`);
                 if (btn1 && !btn1.disabled) btn1.click();
@@ -973,6 +985,9 @@
                 requireInteraction: true 
             });
             notification.onclick = function() {
+                logThreeKingEvent('結束通知 onclick', {
+                    tabId, finishedStep, autoNext:globalConfig.autoNext, visibility:document.visibilityState
+                });
                 window.focus(); notification.close(); stopTitleBlink();
                 if ('clearAppBadge' in navigator) navigator.clearAppBadge();
                 
