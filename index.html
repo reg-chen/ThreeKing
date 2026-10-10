@@ -998,17 +998,9 @@
                         return; 
                     }
 
-                    if (!globalConfig.autoNext) {
-                        const nextStep = finishedStep + 1;
-                        if (nextStep <= 3) {
-                            const nextBtn = document.getElementById(`btn${nextStep}-${tabId}`);
-                            if (nextBtn && !nextBtn.disabled) {
-                                logThreeKingEvent('通知點擊啟動下一王', { tabId, nextStep });
-                                nextBtn.click();
-                            }
-                            switchTab(tabId);
-                        }
-                    }
+                    // Notifications may be activated when Pake/WebView2 regains focus.
+                    // Never treat notification activation as an explicit timer-button click.
+                    switchTab(tabId);
                 }
             };
         } else { setTimeout(() => alert(`${title}\n${body}`), 100); }
