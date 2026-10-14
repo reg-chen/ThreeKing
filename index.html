@@ -370,6 +370,27 @@
         .diagnostic-panel summary { cursor: pointer; font-weight: 600; }
         .diagnostic-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; background: var(--tab-bg); padding: 10px; border-radius: 6px; }
         .diagnostic-panel button { margin-top: 5px; border: 1px solid var(--tab-border); border-radius: 5px; padding: 5px 9px; cursor: pointer; background: var(--tab-bg); color: inherit; }
+
+        /* Notification sound controls */
+        .notification-sound-row { display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;box-sizing:border-box;font-size:14px; }
+        .notification-sound-select { min-width:0;width:166px;max-width:60%;padding:8px 32px 8px 12px;border:1px solid var(--tab-border);border-radius:9px;background-color:#f9fbff;color:#263447;font:inherit;cursor:pointer;outline:none; }
+        .notification-sound-select:focus-visible, #customSoundFile:focus-visible,.custom-sound-btn:focus-visible { outline:2px solid var(--primary-color);outline-offset:2px; }
+        #customSoundControls { box-sizing:border-box;padding:11px 12px 12px;border:1px solid var(--tab-border);border-radius:11px;background:#f7f9fc; }
+        .custom-sound-label { display:block;font-size:14px;font-weight:600;margin-bottom:9px; }
+        .custom-sound-label small {display:block;font-size:12px;font-weight:400;color:#68778a;margin-top:3px;white-space:nowrap;}
+        #customSoundFile { width:100%;max-width:100%;box-sizing:border-box;font:inherit;font-size:12px;color:#506176; }
+        #customSoundFile::file-selector-button {padding:7px 11px;margin-right:9px;border:1px solid var(--tab-border);border-radius:7px;background:#fff;color:#263447;font:inherit;font-weight:600;cursor:pointer;}
+        .custom-sound-name {font-size:12px;color:#68778a;overflow-wrap:anywhere;margin:8px 0 10px;}
+        .custom-sound-actions {display:flex;gap:8px;flex-wrap:wrap;}
+        .custom-sound-btn { padding:8px 12px;border:1px solid var(--tab-border);border-radius:8px;background:#fff;color:#344559;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s; }
+        .custom-sound-btn:hover,#customSoundFile::file-selector-button:hover {background:#e9f0fa;border-color:var(--primary-color);}
+        .custom-sound-btn.primary {background:var(--primary-color);color:#fff;border-color:var(--primary-color);}
+        .custom-sound-btn.primary:hover {filter:brightness(.92);}
+        :root[data-theme="dark"] .notification-sound-select,:root[data-theme="dark"] #customSoundControls {background:#293749;color:#eef3fb;border-color:var(--tab-border);}
+        :root[data-theme="dark"] .custom-sound-label small,:root[data-theme="dark"] .custom-sound-name,:root[data-theme="dark"] #customSoundFile {color:#b6c4d5;}
+        :root[data-theme="dark"] .custom-sound-btn,:root[data-theme="dark"] #customSoundFile::file-selector-button {background:#354359;color:#ecf3fa;border-color:var(--tab-border);}
+        :root[data-theme="dark"] .custom-sound-btn:hover,:root[data-theme="dark"] #customSoundFile::file-selector-button:hover {background:#42546e;}
+        :root[data-theme="dark"] .custom-sound-btn.primary {background:var(--primary-color);color:#122033;}
     </style>
 </head>
 <body>
@@ -500,19 +521,23 @@
                 取消F5重置
             </label>
 
-            <label class="checkbox-wrapper">
-                通知音效
-                <select id="conf-notification-sound" onchange="saveSettings(true)" aria-label="通知音效來源">
+            <label class="notification-sound-row" for="conf-notification-sound">
+                <span>通知音效</span>
+                <select id="conf-notification-sound" class="notification-sound-select" onchange="saveSettings(true)" aria-label="通知音效來源">
                     <option value="native">原生（Windows）</option>
                     <option value="custom">自訂音效</option>
                 </select>
             </label>
             <div id="customSoundControls" style="display:none; width:100%;">
-                <label for="customSoundFile">選擇音效檔案（MP3、WAV、OGG、M4A、FLAC）</label>
-                <input type="file" id="customSoundFile" accept=".mp3,.wav,.ogg,.m4a,.flac,audio/*" onchange="saveCustomNotificationSound(this.files?.[0])" style="max-width:100%;width:100%;">
-                <div id="customSoundName" class="save-msg" style="height:auto;opacity:1;margin-top:5px;">尚未選擇檔案（使用預設雙音）</div>
-                <button type="button" onclick="previewCustomNotificationSound()">試聽</button>
-                <button type="button" onclick="clearCustomNotificationSound()">清除音效檔案</button>
+                <label class="custom-sound-label" for="customSoundFile">選擇音效檔案
+                    <small>（MP3、WAV、OGG、M4A、FLAC）</small>
+                </label>
+                <input type="file" id="customSoundFile" accept=".mp3,.wav,.ogg,.m4a,.flac,audio/*" onchange="saveCustomNotificationSound(this.files?.[0])">
+                <div id="customSoundName" class="custom-sound-name">尚未選擇檔案（使用預設雙音）</div>
+                <div class="custom-sound-actions">
+                    <button type="button" class="custom-sound-btn primary" onclick="previewCustomNotificationSound()">試聽</button>
+                    <button type="button" class="custom-sound-btn" onclick="clearCustomNotificationSound()">清除音效檔案</button>
+                </div>
             </div>
 
             <div id="perm-hint" class="permission-hint">
