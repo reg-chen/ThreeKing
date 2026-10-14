@@ -500,6 +500,14 @@
                 取消F5重置
             </label>
 
+            <label class="checkbox-wrapper">
+                通知音效
+                <select id="conf-notification-sound" onchange="saveSettings(true)" aria-label="通知音效來源">
+                    <option value="native">原生（Windows）</option>
+                    <option value="custom">自訂（雙音提示）</option>
+                </select>
+            </label>
+
             <div id="perm-hint" class="permission-hint">
                 ⚠️ 系統通知已被封鎖，請點擊網址列鎖頭圖示開啟權限。
             </div>
@@ -595,6 +603,14 @@
     document.addEventListener('pointerdown', unlockNotificationAudio, {capture:true});
     document.addEventListener('keydown', unlockNotificationAudio, {capture:true});
 
+    function notifySoundOptions() {
+        const custom = globalConfig.notificationSound === 'custom';
+        if (custom) playNotificationChime();
+        // In native mode explicitly request sound. In custom mode, suppress the
+        // OS sound to prevent a duplicate chime if the bridge honors silent.
+        return { silent: custom };
+    }
+
     function playNotificationChime() {
         const ctx = notificationAudioContext;
         if (!ctx) {
@@ -636,7 +652,7 @@
 
     let globalConfig = {
         d1: 150, d2: 80, d3: 160,
-        autoNext: false, notify: true,
+        autoNext: false, notify: true, notificationSound: 'native',
         resetOnFinish: true,
         blockF5: true // v40 預設開啟
     };
@@ -698,11 +714,12 @@
             const tabData = tabs.find(t => t.id === tabId);
             const tabName = tabData ? tabData.name : "角色";
 
-            playNotificationChime();
+            const soundOptions = notifySoundOptions();
             const notification = new Notification(`[${tabName}] 準備就緒`, {
                 body: "👉 點擊此通知可立即啟動 1王 倒數",
                 icon: "https://cdn-icons-png.flaticon.com/512/850/850960.png",
-                requireInteraction: true 
+                requireInteraction: true,
+                ...soundOptions 
             });
 
             notification.onclick = function() {
@@ -802,6 +819,8 @@
         fillTimeInputs('conf-d1', globalConfig.d1);
         fillTimeInputs('conf-d2', globalConfig.d2);
         fillTimeInputs('conf-d3', globalConfig.d3);
+        globalConfig.notificationSound = globalConfig.notificationSound === 'custom' ? 'custom' : 'native';
+        document.getElementById('conf-notification-sound').value = globalConfig.notificationSound;
         document.getElementById('conf-auto-next').checked = globalConfig.autoNext;
         document.getElementById('conf-notify').checked = globalConfig.notify;
         document.getElementById('conf-reset-on-finish').checked = globalConfig.resetOnFinish;
@@ -820,6 +839,7 @@
         globalConfig.d1 = getTimeFromInputs('conf-d1');
         globalConfig.d2 = getTimeFromInputs('conf-d2');
         globalConfig.d3 = getTimeFromInputs('conf-d3');
+        globalConfig.notificationSound = document.getElementById('conf-notification-sound').value;
         globalConfig.autoNext = document.getElementById('conf-auto-next').checked;
         globalConfig.notify = document.getElementById('conf-notify').checked;
         globalConfig.resetOnFinish = document.getElementById('conf-reset-on-finish').checked;
@@ -1030,11 +1050,12 @@
     function sendNotification(title, body, tabId, finishedStep) {
         startTitleBlink("【時間到！】" + title);
         if (Notification.permission === "granted") {
-            playNotificationChime();
+            const soundOptions = notifySoundOptions();
             const notification = new Notification(title, {
                 body: body,
                 icon: "https://cdn-icons-png.flaticon.com/512/850/850960.png",
-                requireInteraction: true 
+                requireInteraction: true,
+                ...soundOptions 
             });
             notification.onclick = function() {
                 logThreeKingEvent('結束通知 onclick', {
