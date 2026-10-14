@@ -23,16 +23,19 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Rust dependency downloads
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: threeking-pake-cargo-${{ runner.os }}-v1
+      - name: Install pinned Pake CLI
+        shell: pwsh
+        run: |
+          $version = (Get-Content .github/pake-version.txt -Raw).Trim()
+          npm install --global "pake-cli@$version"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Install Pake CLI
-        run: npm install --global pake-cli
+      - name: Cache compiled Pake Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: C:/npm/prefix/node_modules/pake-cli/src-tauri
+          key: pake-windows-${{ hashFiles('.github/pake-version.txt') }}
+          cache-all-crates: true
 
       - name: Build standalone Windows application
         shell: pwsh
