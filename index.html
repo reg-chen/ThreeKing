@@ -575,6 +575,56 @@
     const STORAGE_KEY_PWD = 'dailyKingPasswordRef_v2';
     const STORAGE_KEY_CONF = 'dailyKingSettings_v3'; 
 
+    // Local notification chime. Web Notification does not expose a portable sound option.
+    // Unlock audio from a user gesture so timer completion can play in the background.
+    let notificationAudioContext = null;
+    function unlockNotificationAudio() {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            if (!notificationAudioContext || notificationAudioContext.state === 'closed') {
+                notificationAudioContext = new AudioCtx();
+            }
+            if (notificationAudioContext.state === 'suspended') {
+                notificationAudioContext.resume().catch(() => {});
+            }
+        } catch (err) {
+            logThreeKingEvent('通知音效初始化失敗', {error:String(err)});
+        }
+    }
+    document.addEventListener('pointerdown', unlockNotificationAudio, {capture:true});
+    document.addEventListener('keydown', unlockNotificationAudio, {capture:true});
+
+    function playNotificationChime() {
+        const ctx = notificationAudioContext;
+        if (!ctx) {
+            logThreeKingEvent('通知音效未啟用', {reason:'尚未取得使用者互動'});
+            return;
+        }
+        if (ctx.state !== 'running') {
+            logThreeKingEvent('通知音效未啟用', {state:ctx.state});
+            return;
+        }
+        try {
+            const start = ctx.currentTime + 0.015;
+            for (const [offset, pitch] of [[0, 740], [0.2, 988]]) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = pitch;
+                gain.gain.setValueAtTime(0.0001, start + offset);
+                gain.gain.exponentialRampToValueAtTime(0.13, start + offset + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + 0.24);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(start + offset);
+                osc.stop(start + offset + 0.25);
+            }
+            logThreeKingEvent('通知音效已排程');
+        } catch (err) {
+            logThreeKingEvent('通知音效播放失敗', {error:String(err)});
+        }
+    }
+
     let notificationPermission = "default";
     let blinkInterval = null; 
     let toastTimeout = null; 
@@ -648,6 +698,7 @@
             const tabData = tabs.find(t => t.id === tabId);
             const tabName = tabData ? tabData.name : "角色";
 
+            playNotificationChime();
             const notification = new Notification(`[${tabName}] 準備就緒`, {
                 body: "👉 點擊此通知可立即啟動 1王 倒數",
                 icon: "https://cdn-icons-png.flaticon.com/512/850/850960.png",
@@ -979,6 +1030,7 @@
     function sendNotification(title, body, tabId, finishedStep) {
         startTitleBlink("【時間到！】" + title);
         if (Notification.permission === "granted") {
+            playNotificationChime();
             const notification = new Notification(title, {
                 body: body,
                 icon: "https://cdn-icons-png.flaticon.com/512/850/850960.png",
