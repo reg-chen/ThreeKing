@@ -1,0 +1,54 @@
+name: Monthly Pake Dependency Update
+
+on:
+  schedule:
+    - cron: '17 3 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-pake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Check newest stable Pake CLI
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(tr -d '[:space:]' < .github/pake-version.txt)"
+          latest="$(npm view pake-cli version)"
+          echo "Current: $current; latest: $latest"
+          if [ "$current" != "$latest" ]; then
+            printf '%s\n' "$latest" > .github/pake-version.txt
+            echo "updated=true" >> "$GITHUB_OUTPUT"
+            echo "version=$latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create dependency update PR
+        if: steps.check.outputs.updated == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: maintenance/monthly-pake-cli
+          delete-branch: true
+          commit-message: "chore: update Pake CLI to ${{ steps.check.outputs.version }}"
+          title: "chore: update Pake CLI to ${{ steps.check.outputs.version }}"
+          body: |
+            Monthly Pake CLI dependency check.
+
+            Updates the pinned Pake CLI version. Rust/Tauri dependencies are bundled with that CLI release.
+            Review the release notes and **manually** run the Windows packaging workflow after merging.
+            This workflow does not build, publish or automatically merge.
+          labels: dependencies
