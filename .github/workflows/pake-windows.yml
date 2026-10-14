@@ -5,6 +5,11 @@ on:
 
 permissions:
   contents: read
+  actions: write
+
+concurrency:
+  group: threeking-installer-artifact
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -63,3 +68,27 @@ jobs:
           archive: false
           if-no-files-found: error
           retention-days: 30
+
+      - name: Keep only the latest successful build artifact
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const names = ["ThreeKing-Windows-x64","ThreeKing.msi"];
+            const artifacts = await github.paginate(
+              github.rest.actions.listArtifactsForRepo,
+              { owner, repo, per_page: 100 }
+            );
+            const matches = artifacts.filter(a => names.includes(a.name) && !a.expired);
+            const current = matches.filter(a => a.workflow_run?.id === context.runId);
+            if (current.length !== 1) {
+              core.setFailed('Expected exactly one new artifact for this run; no cleanup performed.');
+              return;
+            }
+            const keepId = current[0].id;
+            for (const artifact of matches) {
+              if (artifact.id === keepId) continue;
+              await github.rest.actions.deleteArtifact({owner, repo, artifact_id: artifact.id});
+              core.info(`Deleted old artifact ${artifact.name} (${artifact.id})`);
+            }
+            core.info(`Retained artifact ${keepId}`);
