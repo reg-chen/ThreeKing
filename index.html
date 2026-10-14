@@ -504,9 +504,16 @@
                 通知音效
                 <select id="conf-notification-sound" onchange="saveSettings(true)" aria-label="通知音效來源">
                     <option value="native">原生（Windows）</option>
-                    <option value="custom">自訂（雙音提示）</option>
+                    <option value="custom">自訂音效</option>
                 </select>
             </label>
+            <div id="customSoundControls" style="display:none; width:100%;">
+                <label for="customSoundFile">選擇音效檔案（MP3、WAV、OGG、M4A、FLAC）</label>
+                <input type="file" id="customSoundFile" accept=".mp3,.wav,.ogg,.m4a,.flac,audio/*" onchange="saveCustomNotificationSound(this.files?.[0])" style="max-width:100%;width:100%;">
+                <div id="customSoundName" class="save-msg" style="height:auto;opacity:1;margin-top:5px;">尚未選擇檔案（使用預設雙音）</div>
+                <button type="button" onclick="previewCustomNotificationSound()">試聽</button>
+                <button type="button" onclick="clearCustomNotificationSound()">清除音效檔案</button>
+            </div>
 
             <div id="perm-hint" class="permission-hint">
                 ⚠️ 系統通知已被封鎖，請點擊網址列鎖頭圖示開啟權限。
@@ -603,9 +610,85 @@
     document.addEventListener('pointerdown', unlockNotificationAudio, {capture:true});
     document.addEventListener('keydown', unlockNotificationAudio, {capture:true});
 
+    // Persist user-selected sound as a Blob; localStorage is unsuitable for audio files.
+    const SOUND_DB_NAME = 'ThreeKingSound', SOUND_STORE = 'files';
+    let customSoundUrl = null, customSoundName = '', activeSound = null;
+    function openSoundDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(SOUND_DB_NAME, 1);
+            request.onupgradeneeded = () => request.result.createObjectStore(SOUND_STORE);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+    async function soundDB(action, value) {
+        const db = await openSoundDB();
+        try {
+            return await new Promise((resolve, reject) => {
+                const tx = db.transaction(SOUND_STORE, action === 'get' ? 'readonly' : 'readwrite');
+                const store = tx.objectStore(SOUND_STORE);
+                const req = action === 'get' ? store.get('notification') :
+                    action === 'delete' ? store.delete('notification') : store.put(value, 'notification');
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        } finally { db.close(); }
+    }
+    function updateCustomSoundVisibility() {
+        const control = document.getElementById('customSoundControls');
+        if (control) control.style.display = globalConfig.notificationSound === 'custom' ? 'block' : 'none';
+    }
+    function showCustomSoundName() {
+        const label = document.getElementById('customSoundName');
+        if (label) label.textContent = customSoundName || '尚未選擇檔案（使用預設雙音）';
+    }
+    function setCustomSound(data) {
+        if (customSoundUrl) URL.revokeObjectURL(customSoundUrl);
+        customSoundUrl = data?.blob ? URL.createObjectURL(data.blob) : null;
+        customSoundName = data?.name || '';
+        showCustomSoundName();
+    }
+    async function loadCustomNotificationSound() {
+        try { setCustomSound(await soundDB('get')); }
+        catch (err) { logThreeKingEvent('載入音效失敗', {error:String(err)}); }
+    }
+    async function saveCustomNotificationSound(file) {
+        if (!file) return;
+        if (!file.type.startsWith('audio/') && !/\\.(mp3|wav|ogg|m4a|flac)$/i.test(file.name)) {
+            showToast('請選擇音訊檔案'); return;
+        }
+        try {
+            // Keep large files out of memory/localStorage; IndexedDB handles Blob data.
+            const data = {name:file.name, blob:file};
+            await soundDB('put', data);
+            setCustomSound(data);
+            showToast('自訂音效已儲存');
+        } catch(err) { logThreeKingEvent('儲存音效失敗', {error:String(err)}); showToast('音效儲存失敗'); }
+    }
+    async function clearCustomNotificationSound() {
+        try {
+            await soundDB('delete');
+            setCustomSound(null);
+            document.getElementById('customSoundFile').value = '';
+            showToast('已清除自訂音效');
+        } catch(err) { showToast('清除失敗'); }
+    }
+    function playSelectedNotificationSound() {
+        if (!customSoundUrl) { playNotificationChime(); return; }
+        try {
+            if (activeSound) { activeSound.pause(); activeSound.currentTime = 0; }
+            activeSound = new Audio(customSoundUrl);
+            activeSound.play().catch(err => logThreeKingEvent('自訂音效播放失敗', {error:String(err)}));
+        } catch(err) { logThreeKingEvent('自訂音效播放失敗', {error:String(err)}); }
+    }
+    function previewCustomNotificationSound() {
+        unlockNotificationAudio();
+        playSelectedNotificationSound();
+    }
+
     function notifySoundOptions() {
         const custom = globalConfig.notificationSound === 'custom';
-        if (custom) playNotificationChime();
+        if (custom) playSelectedNotificationSound();
         // In native mode explicitly request sound. In custom mode, suppress the
         // OS sound to prevent a duplicate chime if the bridge honors silent.
         return { silent: custom };
@@ -700,6 +783,7 @@
         renderBinaryGrid("00000000");
         initDailyPassword();
         loadSettings();
+        loadCustomNotificationSound();
         logThreeKingEvent('啟動設定讀取完畢');
         loadTabsFromStorage();
         checkNotificationPermission();
@@ -821,6 +905,7 @@
         fillTimeInputs('conf-d3', globalConfig.d3);
         globalConfig.notificationSound = globalConfig.notificationSound === 'custom' ? 'custom' : 'native';
         document.getElementById('conf-notification-sound').value = globalConfig.notificationSound;
+        updateCustomSoundVisibility();
         document.getElementById('conf-auto-next').checked = globalConfig.autoNext;
         document.getElementById('conf-notify').checked = globalConfig.notify;
         document.getElementById('conf-reset-on-finish').checked = globalConfig.resetOnFinish;
@@ -840,6 +925,7 @@
         globalConfig.d2 = getTimeFromInputs('conf-d2');
         globalConfig.d3 = getTimeFromInputs('conf-d3');
         globalConfig.notificationSound = document.getElementById('conf-notification-sound').value;
+        updateCustomSoundVisibility();
         globalConfig.autoNext = document.getElementById('conf-auto-next').checked;
         globalConfig.notify = document.getElementById('conf-notify').checked;
         globalConfig.resetOnFinish = document.getElementById('conf-reset-on-finish').checked;
