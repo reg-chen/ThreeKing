@@ -25,7 +25,12 @@ jobs:
         with:
           repository: reg-chen/Pake
           ref: 547387a556aa5097f5ec2e3a4d7c7970d1c22cc7
-          path: ../pake-source
+          path: pake-source
+
+      - name: Move patched Pake outside application sources
+        shell: pwsh
+        run: |
+          Move-Item -LiteralPath pake-source -Destination (Join-Path $env:RUNNER_TEMP 'pake-source')
 
       - name: Install Node.js
         uses: actions/setup-node@v7
@@ -37,7 +42,7 @@ jobs:
 
       - name: Build patched Pake CLI from fork
         shell: pwsh
-        working-directory: ../pake-source
+        working-directory: ${{ runner.temp }}/pake-source
         run: |
           corepack enable
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
