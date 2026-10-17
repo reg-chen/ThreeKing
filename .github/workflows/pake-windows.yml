@@ -20,18 +20,6 @@ jobs:
       - name: Checkout ThreeKing
         uses: actions/checkout@v5
 
-      - name: Checkout patched Pake source
-        uses: actions/checkout@v5
-        with:
-          repository: reg-chen/Pake
-          ref: 547387a556aa5097f5ec2e3a4d7c7970d1c22cc7
-          path: pake-source
-
-      - name: Move patched Pake outside application sources
-        shell: pwsh
-        run: |
-          Move-Item -LiteralPath pake-source -Destination (Join-Path $env:RUNNER_TEMP 'pake-source')
-
       - name: Install Node.js
         uses: actions/setup-node@v7
         with:
@@ -40,26 +28,22 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build patched Pake CLI from fork
+      - name: Install official pinned Pake CLI
         shell: pwsh
-        working-directory: ${{ runner.temp }}/pake-source
         run: |
-          corepack enable
+          $version = (Get-Content .github/pake-version.txt -Raw).Trim()
+          npm install --global "pake-cli@$version"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          corepack pnpm install --frozen-lockfile
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          corepack pnpm run cli:build
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm install --global .
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          pake --version
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $installed = (pake --version).Trim()
+          if ($LASTEXITCODE -ne 0 -or $installed -ne $version) {
+            throw "Pake version mismatch: expected $version, got $installed"
+          }
 
       - name: Cache compiled Pake Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: C:/npm/prefix/node_modules/pake-cli/src-tauri
-          key: pake-fork-547387a-windows
+          key: pake-windows-${{ hashFiles('.github/pake-version.txt') }}
           cache-all-crates: true
 
       - name: Build standalone Windows application
