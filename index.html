@@ -200,7 +200,7 @@
         }
         .tabs-list::-webkit-scrollbar { display: none; }
         .tabs-list.active { cursor: grabbing; }
-        .add-tab-wrapper { margin-left: 10px; flex-shrink: 0; padding-left: 10px; border-left: 1px solid #ccc; }
+        .add-tab-wrapper { margin-left: 10px; flex-shrink: 0; padding-left: 10px; border-left: 1px solid #ccc; display: flex; align-items: center; gap: 7px; }
         .tab-btn {
             padding: 6px 15px; background: var(--tab-inactive-bg); border: 1px solid var(--tab-border); 
             border-radius: 20px; cursor: pointer; font-weight: bold; color: #666;
@@ -213,6 +213,9 @@
         }
         .tab-timer-mini { font-size: 0.85em; color: #e74c3c; font-family: 'Courier New', Courier, monospace; font-weight: bold; margin-left: 2px; }
         .tab-btn.active .tab-timer-mini { display: none; }
+        .tab-rename { font-size: 12px; color: #999; padding: 2px 4px; border: 0; background: transparent; border-radius: 6px; cursor: pointer; display: none; }
+        .tab-btn.active .tab-rename { display: inline-block; }
+        .tab-rename:hover { background: var(--tab-bg); color: var(--primary-color); }
         .tab-close { font-size: 12px; color: #999; padding: 2px 6px; border-radius: 50%; margin-left: 2px; display: none; }
         .tab-btn.active .tab-close { display: inline-block; }
         .tab-close:hover { background: #ffcccc; color: #d00; }
@@ -222,6 +225,8 @@
             width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
         }
         .add-tab-btn:hover { background-color: #357abd; }
+        .tab-renumber-btn { padding: 5px 7px; border: 1px solid var(--tab-border); border-radius: 8px; background: var(--tab-inactive-bg); color: inherit; cursor: pointer; font: inherit; font-size: 12px; white-space: nowrap; }
+        .tab-renumber-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
         .tab-pane { display: none; width: 100%; animation: fadeIn 0.3s; }
         .tab-pane.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -467,7 +472,8 @@
                 <!-- JS 動態插入 -->
             </div>
             <div class="add-tab-wrapper">
-                <button class="add-tab-btn" onclick="addNewTab()">+</button>
+                <button class="add-tab-btn" type="button" onclick="addNewTab()" title="新增角色" aria-label="新增角色">+</button>
+                <button class="tab-renumber-btn" type="button" onclick="resetAutoRoleNumbers()" title="將自動命名的角色重新編為 1、2、3…，不影響自訂名稱與計時器">重編</button>
             </div>
         </div>
     </div>
@@ -611,7 +617,8 @@
         if (document.getElementById('diagnosticDetails')?.open) renderThreeKingDiagnostics();
     }, 1000);
 
-    const STORAGE_KEY_TABS = 'dailyKingTimerTabs_v40'; 
+    const STORAGE_KEY_TABS = 'dailyKingTimerTabs_v40';
+    const STORAGE_KEY_ROLE_NUMBER = 'dailyKingNextRoleNumber_v1';
     const STORAGE_KEY_PWD = 'dailyKingPasswordRef_v2';
     const STORAGE_KEY_CONF = 'dailyKingSettings_v3'; 
 
@@ -863,6 +870,7 @@
             const tabData = tabs.find(t => t.id === currentRenamingId);
             if (tabData) {
                 tabData.name = newName;
+                tabData.autoNamed = false;
                 document.getElementById(`tab-name-${currentRenamingId}`).innerText = newName;
                 saveTabsToStorage();
                 showToast("分頁名稱已儲存");
@@ -1195,25 +1203,38 @@
     /* =========================================
        多頁籤系統
        ========================================= */
-    let tabCounter = 0; 
-    let tabs = []; 
+    let tabCounter = 0; // Stable internal ID; never renumber active timers.
+    let nextRoleNumber = 1; // Display-name counter, independent of tab IDs.
+    let tabs = [];
 
     function loadTabsFromStorage() {
+        const savedNext = Number(localStorage.getItem(STORAGE_KEY_ROLE_NUMBER));
+        if (Number.isSafeInteger(savedNext) && savedNext > 0) nextRoleNumber = savedNext;
+
         const savedData = localStorage.getItem(STORAGE_KEY_TABS);
         if (savedData) {
             const parsedTabs = JSON.parse(savedData);
             if (parsedTabs.length > 0) {
-                const maxId = Math.max(...parsedTabs.map(t => t.id));
-                tabCounter = maxId;
-                parsedTabs.forEach(t => createTab(t.id, t.name));
+                tabCounter = Math.max(...parsedTabs.map(t => t.id));
+                parsedTabs.forEach(t => {
+                    // Old saved tabs have no autoNamed flag; infer only for default names.
+                    const autoNamed = typeof t.autoNamed === 'boolean'
+                        ? t.autoNamed : /^角色\s+\d+$/.test(t.name);
+                    createTab(t.id, t.name, autoNamed);
+                    if (autoNamed) {
+                        const number = /^角色\s+(\d+)$/.exec(t.name);
+                        if (number) nextRoleNumber = Math.max(nextRoleNumber, Number(number[1]) + 1);
+                    }
+                });
                 switchTab(parsedTabs[0].id);
             } else { addNewTab(); }
         } else { addNewTab(); }
     }
 
     function saveTabsToStorage() {
-        const dataToSave = tabs.map(t => ({ id: t.id, name: t.name }));
+        const dataToSave = tabs.map(t => ({ id: t.id, name: t.name, autoNamed: t.autoNamed }));
         localStorage.setItem(STORAGE_KEY_TABS, JSON.stringify(dataToSave));
+        localStorage.setItem(STORAGE_KEY_ROLE_NUMBER, String(nextRoleNumber));
     }
 
     function showTabSaveFeedback() {
@@ -1230,16 +1251,30 @@
 
     function addNewTab() {
         tabCounter++;
-        createTab(tabCounter, `角色 ${tabCounter}`);
+        createTab(tabCounter, `角色 ${nextRoleNumber++}`, true);
         saveTabsToStorage();
         switchTab(tabCounter);
         showToast("已新增分頁");
     }
 
-    function createTab(id, name) {
+    function resetAutoRoleNumbers() {
+        if (!confirm('重新排列自動命名角色的編號？自訂名稱與目前計時器都會保留。')) return;
+        let number = 1;
+        for (const tab of tabs) {
+            if (!tab.autoNamed) continue;
+            tab.name = `角色 ${number++}`;
+            document.getElementById(`tab-name-${tab.id}`).textContent = tab.name;
+        }
+        nextRoleNumber = number;
+        saveTabsToStorage();
+        showToast('角色自動編號已重置');
+    }
+
+    function createTab(id, name, autoNamed = false) {
         const newTab = {
             id: id,
             name: name,
+            autoNamed: autoNamed,
             endTime: null,
             finished: false,
             currentStep: null
@@ -1251,14 +1286,16 @@
         const tabBtn = document.createElement('div');
         tabBtn.className = 'tab-btn';
         tabBtn.id = `tab-btn-${id}`;
-        tabBtn.onclick = (e) => { if(e.target.classList.contains('tab-close')) return; switchTab(id); };
+        tabBtn.onclick = (e) => { if(e.target.closest('.tab-close, .tab-rename')) return; switchTab(id); };
         tabBtn.ondblclick = () => openRenameModal(id);
         
         tabBtn.innerHTML = `
-            <span id="tab-name-${id}">${name}</span>
+            <span id="tab-name-${id}"></span>
             <span id="tab-timer-mini-${id}" class="tab-timer-mini"></span>
+            <button type="button" class="tab-rename" onclick="openRenameModal(${id})" title="重新命名角色" aria-label="重新命名角色">✎</button>
             <span class="tab-close" onclick="openDeleteModal(${id})">✕</span>
         `;
+        tabBtn.querySelector(`#tab-name-${id}`).textContent = name;
         
         listContainer.appendChild(tabBtn);
 
@@ -1336,6 +1373,7 @@
         const newName = prompt("請輸入新的標籤名稱：", tabData.name);
         if(newName && newName.trim() !== "") {
             tabData.name = newName;
+            tabData.autoNamed = false;
             document.getElementById(`tab-name-${id}`).innerText = newName;
             saveTabsToStorage();
             showToast("分頁名稱已儲存");
