@@ -213,19 +213,16 @@
         }
         .tab-timer-mini { font-size: 0.85em; color: #e74c3c; font-family: 'Courier New', Courier, monospace; font-weight: bold; margin-left: 2px; }
         .tab-btn.active .tab-timer-mini { display: none; }
-        .tab-rename { font-size: 12px; color: #999; padding: 2px 4px; border: 0; background: transparent; border-radius: 6px; cursor: pointer; display: none; }
-        .tab-btn.active .tab-rename { display: inline-block; }
-        .tab-rename:hover { background: var(--tab-bg); color: var(--primary-color); }
-        .tab-close { font-size: 12px; color: #999; padding: 2px 6px; border-radius: 50%; margin-left: 2px; display: none; }
-        .tab-btn.active .tab-close { display: inline-block; }
-        .tab-close:hover { background: #ffcccc; color: #d00; }
+        .tab-edit { font-size: 15px; color: #999; padding: 2px 6px; border: 0; background: transparent; border-radius: 6px; cursor: pointer; display: none; }
+        .tab-btn.active .tab-edit { display: inline-flex; align-items: center; justify-content: center; }
+        .tab-edit:hover { background: var(--tab-bg); color: var(--primary-color); }
         .add-tab-btn {
             padding: 5px 12px; font-size: 18px; background: #4a90e2; color: white;
             border: none; border-radius: 50%; cursor: pointer;
             width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
         }
         .add-tab-btn:hover { background-color: #357abd; }
-        .tab-renumber-btn { padding: 5px 7px; border: 1px solid var(--tab-border); border-radius: 8px; background: var(--tab-inactive-bg); color: inherit; cursor: pointer; font: inherit; font-size: 12px; white-space: nowrap; }
+        .tab-renumber-btn { width: 30px; height: 30px; padding: 0; border: 1px solid var(--tab-border); border-radius: 50%; background: var(--tab-inactive-bg); color: inherit; cursor: pointer; font: inherit; font-size: 21px; display: flex; align-items: center; justify-content: center; }
         .tab-renumber-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
         .tab-pane { display: none; width: 100%; animation: fadeIn 0.3s; }
         .tab-pane.active { display: block; }
@@ -349,8 +346,8 @@
         :root[data-theme="dark"] .bit-value.active {background:#234263;border-color:var(--primary-color)}
         :root[data-theme="dark"] .tab-btn {color:#d0dceb}
         :root[data-theme="dark"] .tab-btn.active {background:#293f5a;color:#aad3ff}
-        :root[data-theme="dark"] .tab-close {color:#c4cfdd}
-        :root[data-theme="dark"] .tab-close:hover {background:#683b47;color:#fff}
+        :root[data-theme="dark"] .tab-edit {color:#c4cfdd}
+        :root[data-theme="dark"] .tab-edit:hover {background:#374e67;color:#aad3ff}
         :root[data-theme="dark"] .btn-sub-reset {background:#263444}
         :root[data-theme="dark"] .btn-sub-reset:disabled {background:transparent;border-color:#49586a;color:#8292a6}
         :root[data-theme="dark"] .timer-btn:disabled,:root[data-theme="dark"] .btn-start-notify:disabled {color:#adbbcc;opacity:1}
@@ -403,15 +400,16 @@
 <!-- 全域漂浮通知 -->
 <div id="toast-notification">已儲存</div>
 
-<!-- 重新命名彈窗 -->
-<div id="renameModal" class="modal-overlay" onclick="if(event.target===this) closeRenameModal()">
+<!-- 修改角色：改名或刪除 -->
+<div id="editRoleModal" class="modal-overlay" onclick="if(event.target===this) closeEditRoleModal()">
     <div class="modal-content">
-        <h3>三王計時器</h3>
-        <p>請輸入新的角色名稱：</p>
-        <input type="text" id="renameInput" onkeydown="if(event.key==='Enter') confirmRename()">
+        <h3>修改角色</h3>
+        <p>角色名稱</p>
+        <input type="text" id="editRoleName" aria-label="角色名稱" onkeydown="if(event.key==='Enter') saveRoleName()">
         <div class="modal-buttons">
-            <button class="btn-modal btn-cancel" onclick="closeRenameModal()">取消</button>
-            <button class="btn-modal btn-confirm" onclick="confirmRename()">確定</button>
+            <button type="button" class="btn-modal btn-delete" onclick="openDeleteModal()">刪除</button>
+            <button type="button" class="btn-modal btn-cancel" onclick="closeEditRoleModal()">取消</button>
+            <button type="button" class="btn-modal btn-confirm" onclick="saveRoleName()">儲存</button>
         </div>
     </div>
 </div>
@@ -473,7 +471,7 @@
             </div>
             <div class="add-tab-wrapper">
                 <button class="add-tab-btn" type="button" onclick="addNewTab()" title="新增角色" aria-label="新增角色">+</button>
-                <button class="tab-renumber-btn" type="button" onclick="resetAutoRoleNumbers()" title="將自動命名的角色重新編為 1、2、3…，不影響自訂名稱與計時器">重編</button>
+                <button class="tab-renumber-btn" type="button" onclick="resetAutoRoleNumbers()" title="Reset：重設自動角色編號（不影響計時器）" aria-label="Reset：重設自動角色編號">⟳</button>
             </div>
         </div>
     </div>
@@ -762,7 +760,7 @@
     const originalTitle = document.title;
     let deferredPrompt;
     
-    let currentRenamingId = null;
+    let currentEditingId = null;
     let currentDeletingId = null;
 
     let globalConfig = {
@@ -849,40 +847,46 @@
         }
     }
 
-    /* Modals */
-    function openRenameModal(id) {
+    /* Role editing and deletion */
+    function openEditRoleModal(id) {
         const tabData = tabs.find(t => t.id === id);
         if (!tabData) return;
-        currentRenamingId = id;
-        const input = document.getElementById('renameInput');
+        currentEditingId = id;
+        const input = document.getElementById('editRoleName');
         input.value = tabData.name;
-        document.getElementById('renameModal').classList.add('show');
+        document.getElementById('editRoleModal').classList.add('show');
         setTimeout(() => input.focus(), 100);
     }
-    function closeRenameModal() {
-        document.getElementById('renameModal').classList.remove('show');
-        currentRenamingId = null;
+    function closeEditRoleModal() {
+        document.getElementById('editRoleModal').classList.remove('show');
+        currentEditingId = null;
     }
-    function confirmRename() {
-        if (currentRenamingId === null) return;
-        const newName = document.getElementById('renameInput').value.trim();
-        if (newName) {
-            const tabData = tabs.find(t => t.id === currentRenamingId);
-            if (tabData) {
-                tabData.name = newName;
-                tabData.autoNamed = false;
-                document.getElementById(`tab-name-${currentRenamingId}`).innerText = newName;
-                saveTabsToStorage();
-                showToast("分頁名稱已儲存");
-            }
+    function saveRoleName() {
+        if (currentEditingId === null) return;
+        const input = document.getElementById('editRoleName');
+        const newName = input.value.trim();
+        if (!newName) {
+            showToast('角色名稱不可為空');
+            input.focus();
+            return;
         }
-        closeRenameModal();
+        const tabData = tabs.find(t => t.id === currentEditingId);
+        if (tabData && newName !== tabData.name) {
+            tabData.name = newName;
+            tabData.autoNamed = false;
+            document.getElementById(`tab-name-${currentEditingId}`).textContent = newName;
+            saveTabsToStorage();
+            showToast('角色名稱已儲存');
+        }
+        closeEditRoleModal();
     }
-    function openDeleteModal(id) {
-        const tabData = tabs.find(t => t.id === id);
+    function openDeleteModal() {
+        if (currentEditingId === null) return;
+        const tabData = tabs.find(t => t.id === currentEditingId);
         if (!tabData) return;
-        currentDeletingId = id;
-        document.getElementById('deleteMsg').innerText = `確定要刪除 ${tabData.name} 嗎？`;
+        currentDeletingId = currentEditingId;
+        document.getElementById('deleteMsg').textContent = `確定要刪除 ${tabData.name} 嗎？`;
+        closeEditRoleModal();
         document.getElementById('deleteModal').classList.add('show');
     }
     function closeDeleteModal() {
@@ -893,14 +897,16 @@
         if (currentDeletingId === null) return;
         const id = currentDeletingId;
         const targetTab = tabs.find(t => t.id === id);
-        targetTab.endTime = null; 
+        if (!targetTab) { closeDeleteModal(); return; }
+        targetTab.endTime = null;
         document.getElementById(`tab-btn-${id}`).remove();
         document.getElementById(`tab-pane-${id}`).remove();
         tabs = tabs.filter(t => t.id !== id);
         saveTabsToStorage();
-        if (tabs.length > 0) switchTab(tabs[tabs.length - 1].id); else addNewTab();
-        showToast("已刪除分頁");
         closeDeleteModal();
+        if (tabs.length > 0) switchTab(tabs[tabs.length - 1].id);
+        else addNewTab();
+        showToast('已刪除角色');
     }
 
     function enableDragScroll() {
@@ -1286,14 +1292,13 @@
         const tabBtn = document.createElement('div');
         tabBtn.className = 'tab-btn';
         tabBtn.id = `tab-btn-${id}`;
-        tabBtn.onclick = (e) => { if(e.target.closest('.tab-close, .tab-rename')) return; switchTab(id); };
-        tabBtn.ondblclick = () => openRenameModal(id);
-        
+        tabBtn.onclick = (e) => { if (e.target.closest('.tab-edit')) return; switchTab(id); };
+        tabBtn.ondblclick = (e) => { if (!e.target.closest('.tab-edit')) openEditRoleModal(id); };
+
         tabBtn.innerHTML = `
             <span id="tab-name-${id}"></span>
             <span id="tab-timer-mini-${id}" class="tab-timer-mini"></span>
-            <button type="button" class="tab-rename" onclick="openRenameModal(${id})" title="重新命名角色" aria-label="重新命名角色">✎</button>
-            <span class="tab-close" onclick="openDeleteModal(${id})">✕</span>
+            <button type="button" class="tab-edit" onclick="openEditRoleModal(${id})" title="修改角色名稱或刪除" aria-label="修改角色名稱或刪除">✎</button>
         `;
         tabBtn.querySelector(`#tab-name-${id}`).textContent = name;
         
@@ -1354,33 +1359,7 @@
         }
     }
 
-    function removeTab(id) {
-        if(!confirm('確定要刪除這個分頁嗎？')) return;
-        const targetTab = tabs.find(t => t.id === id);
-        targetTab.endTime = null; 
-        document.getElementById(`tab-btn-${id}`).remove();
-        document.getElementById(`tab-pane-${id}`).remove();
-        tabs = tabs.filter(t => t.id !== id);
-        saveTabsToStorage();
-        if (tabs.length > 0) switchTab(tabs[tabs.length - 1].id);
-        else addNewTab();
-        showToast("已刪除分頁");
-    }
-
-    function renameTab(id) {
-        const tabData = tabs.find(t => t.id === id);
-        if(!tabData) return;
-        const newName = prompt("請輸入新的標籤名稱：", tabData.name);
-        if(newName && newName.trim() !== "") {
-            tabData.name = newName;
-            tabData.autoNamed = false;
-            document.getElementById(`tab-name-${id}`).innerText = newName;
-            saveTabsToStorage();
-            showToast("分頁名稱已儲存");
-        }
-    }
-
-    function markButtonAsFinished(btnElement) {
+        function markButtonAsFinished(btnElement) {
         if (!btnElement) return;
         btnElement.classList.add('btn-timeout');
         btnElement.innerHTML = 'X';
