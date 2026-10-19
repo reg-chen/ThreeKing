@@ -49,7 +49,8 @@ jobs:
       - name: Build standalone Windows application
         shell: pwsh
         run: |
-          pake . --name "三王計時器" --identifier com.pake.a89ec78 --icon "https://cdn-icons-png.flaticon.com/512/850/850960.png" --width 390 --height 800 --min-width 390 --min-height 580 --json
+          # WiX en-US uses Windows-1252 and cannot encode the Chinese product name (LGHT0311).
+          pake . --name "三王計時器" --identifier com.pake.a89ec78 --installer-language zh-TW --icon "https://cdn-icons-png.flaticon.com/512/850/850960.png" --width 390 --height 800 --min-width 390 --min-height 580 --json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Collect Windows installer
