@@ -49,7 +49,7 @@ jobs:
       - name: Build standalone Windows application
         shell: pwsh
         run: |
-          pake . --name ThreeKing --icon "https://cdn-icons-png.flaticon.com/512/850/850960.png" --width 390 --height 800 --min-width 390 --min-height 580 --json
+          pake . --name "三王計時器" --identifier com.pake.a89ec78 --icon "https://cdn-icons-png.flaticon.com/512/850/850960.png" --width 390 --height 800 --min-width 390 --min-height 580 --json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Collect Windows installer
