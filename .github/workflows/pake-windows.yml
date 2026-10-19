@@ -49,8 +49,9 @@ jobs:
       - name: Build standalone Windows application
         shell: pwsh
         run: |
-          # WiX en-US uses Windows-1252 and cannot encode the Chinese product name (LGHT0311).
-          pake . --name "三王計時器" --identifier com.pake.a89ec78 --installer-language zh-TW --icon "https://cdn-icons-png.flaticon.com/512/850/850960.png" --width 390 --height 800 --min-width 390 --min-height 580 --json
+          # Keep the MSI product name, executable and install directory ASCII-only.
+          # --title controls the window title without changing installer identity.
+          pake . --name ThreeKing --title "三王計時器" --identifier com.pake.a89ec78 --icon "https://cdn-icons-png.flaticon.com/512/850/850960.png" --width 390 --height 800 --min-width 390 --min-height 580 --json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Collect Windows installer
